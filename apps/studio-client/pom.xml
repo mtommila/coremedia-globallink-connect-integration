@@ -4,7 +4,8 @@
   <parent>
     <artifactId>studio-client.extensions</artifactId>
     <groupId>com.coremedia.blueprint</groupId>
-    <version>1-SNAPSHOT</version>
+    <version>9999.9</version>
+    <relativePath>../../../../../../apps/studio-client/blueprint/modules/extensions/pom.xml</relativePath>
   </parent>
 
   <groupId>com.coremedia.labs.translation.gcc</groupId>

@@ -5,7 +5,7 @@
   <parent>
     <artifactId>workflow-server</artifactId>
     <groupId>com.coremedia.labs.translation.gcc</groupId>
-    <version>1-SNAPSHOT</version>
+    <version>9999.9</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
   <modelVersion>4.0.0</modelVersion>
