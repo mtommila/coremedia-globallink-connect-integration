@@ -1,5 +1,6 @@
 package com.coremedia.labs.translation.gcc.workflow;
 
+import com.coremedia.cap.common.RelativeTimeLimit;
 import com.coremedia.cap.util.StructUtil;
 import com.coremedia.labs.translation.gcc.facade.GCConfigProperty;
 import com.coremedia.labs.translation.gcc.facade.GCExchangeFacade;
@@ -96,6 +97,14 @@ abstract class GlobalLinkAction<P, R> extends SpringAwareLongAction {
    */
   private static final String CONFIG_RETRY_COMMUNICATION_ERRORS = "retryCommunicationErrors";
   private static final int DEFAULT_RETRY_COMMUNICATION_ERRORS = 5;
+
+  /**
+   * Name of the config parameter in {@link #getGccSettings(Site)} to control after how many seconds the communication
+   * is retried automatically.
+   */
+  private static final String CONFIG_DEFAULT_RETRY_DELAY_IN_SECONDS = "requestUpdateIntervalSeconds";
+  private static final int DEFAULT_RETRY_COMMUNICATION_DELAY_SECS = 180;
+
   private static final MimeType MIME_TYPE_JSON = mimeType("application/json");
   private static final Gson contentObjectReturnsIdGson = new GsonBuilder()
           .enableComplexMapKeySerialization()
@@ -106,6 +115,7 @@ abstract class GlobalLinkAction<P, R> extends SpringAwareLongAction {
   private String masterContentObjectsVariable;
   private String remainingAutomaticRetriesVariable;
   private String issuesVariable;
+  private String retryDelayTimerVariable;
 
   // --- construct and configure ----------------------------------------------------------------------
 
@@ -167,6 +177,16 @@ abstract class GlobalLinkAction<P, R> extends SpringAwareLongAction {
     this.issuesVariable = requireNonNull(issuesVariable);
   }
 
+  /**
+   * The name of the Timer variable that will be initialized with corresponding value
+   * from the translation settings "retryCommunicationDelaySec" (default = 180sec).
+   * @param retryDelayTimerVariable the name of the Timer variable
+   * @see #CONFIG_DEFAULT_RETRY_DELAY_IN_SECONDS
+   */
+  public void setRetryDelayTimerVariable(String retryDelayTimerVariable) {
+    this.retryDelayTimerVariable = retryDelayTimerVariable;
+  }
+
   // --- LongAction interface ----------------------------------------------------------------------
 
   @Override
@@ -178,6 +198,18 @@ abstract class GlobalLinkAction<P, R> extends SpringAwareLongAction {
     }
 
     List<ContentObject> masterContentObjects = process.getLinksAndVersions(getMasterContentObjectsVariable());
+
+    if (retryDelayTimerVariable != null) {
+      Site masterSite = getMasterSite(masterContentObjects);
+      Map<String, Object> settings = getGccSettings(masterSite);
+      Object delaySeconds = settings.get(CONFIG_DEFAULT_RETRY_DELAY_IN_SECONDS);
+      if (delaySeconds instanceof Integer) {
+        process.set(retryDelayTimerVariable, new RelativeTimeLimit((Integer) delaySeconds));
+      } else {
+        process.set(retryDelayTimerVariable, new RelativeTimeLimit(DEFAULT_RETRY_COMMUNICATION_DELAY_SECS));
+      }
+    }
+
     Integer i = process.getInteger(remainingAutomaticRetriesVariable);
     int remainingAutomaticRetries = i != null ? i : 0;
     P extendedParameters = doExtractParameters(task);
@@ -374,10 +406,10 @@ abstract class GlobalLinkAction<P, R> extends SpringAwareLongAction {
 
   private int maxAutomaticRetries(Site masterSite) {
     Map<String, Object> gccSettings = getGccSettings(masterSite);
-    Object value = gccSettings.get(CONFIG_RETRY_COMMUNICATION_ERRORS);
+    String value = String.valueOf(gccSettings.get(CONFIG_RETRY_COMMUNICATION_ERRORS));
     if (value != null) {
       try {
-        return Integer.parseInt(String.valueOf(value));
+        return Integer.parseInt(value);
       } catch (NumberFormatException e) {
         LOG.warn("Ignoring setting '{}'. Not an integer: {}", CONFIG_RETRY_COMMUNICATION_ERRORS, value);
       }
